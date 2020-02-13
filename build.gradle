@@ -1,0 +1,73 @@
+plugins {
+    id 'java'
+    id "org.hidetake.swagger.generator" version "2.18.1"
+    id 'maven-publish'
+    id "com.jfrog.artifactory" version "4.13.0"
+
+}
+
+group 'com.petstore'
+version '1.0-SNAPSHOT'
+
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+    swaggerCodegen 'io.swagger:swagger-codegen-cli:2.4.2'
+    implementation group: 'junit', name: 'junit', version: '4.12'
+    implementation group: 'io.rest-assured', name: 'rest-assured', version: '4.2.0'
+}
+
+swaggerSources {
+    petstore {
+        inputFile = file('src/main/java/config/petstore.json')
+        code {
+            language = 'java'
+            configFile = file('src/main/java/config/config.json')
+        }
+    }
+}
+
+def apiClientCodePath = "build/swagger-code-petstore"
+
+task buildPetstoreApiJar(type: GradleBuild) {
+    dir = "$apiClientCodePath"
+    tasks = ['clean', 'build']
+}
+
+task sourceJar(type: Jar, dependsOn: classes) {
+    classifier 'sources'
+    from sourceSets.main.allSource
+}
+
+
+publishing {
+    publications {
+        petstore(MavenPublication) {
+            groupId 'com.petstore'
+            artifactId 'swagger-api'
+            version '0.0.3'
+
+            artifact sourceJar
+
+            artifact file("$apiClientCodePath/build/libs/swagger-codegen-event-api-client-0.0.1-SNAPSHOT.jar")
+        }
+    }
+}
+
+artifactory {
+    contextUrl = 'https://yohji.jfrog.io/yohji'
+    publish {
+        repository {
+            repoKey = 'libs-release-local' // The Artifactory repository key to publish to
+            username = "${artifactory_user}" // The publisher user name
+            password = "${artifactory_password}" // The publisher password
+            maven = true
+        }
+        defaults {
+            publications('petstore')
+        }
+    }
+}
